@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AbEngineCore console UI build: login-gate-deploy-20260426-v21 -->
+<!-- AbEngineCore console UI build: login-gate-deploy-20260426-v22 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -465,6 +465,7 @@ button, input, select, textarea { font: inherit; }
 }
 .auth-modal-panel .field label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
 .auth-modal-panel input { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: #0d1520; color: var(--text); }
+</style>
 
 <style id="login-gate-css">
 #login-gate {
@@ -511,7 +512,7 @@ button, input, select, textarea { font: inherit; }
   text-align: center; line-height: 1.5;
 }
 </style>
-</style>
+
 </head>
 <body>
 
@@ -7272,13 +7273,8 @@ ${body}
 
 <script id="login-gate-js">
 (function() {
-  const CREDS = {"zhanglab": "a4cbe50bf0a264cbf990eb3c3abc85ab21af93f97c675af3a7956ea71172d93c"};
+  const CREDS = {"zhanglab": "insynbio2026"};
   const LS_AUTH = "insynbio_gate_auth";
-
-  async function sha256(msg) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(msg));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
-  }
 
   window.gateLogin = async function() {
     const user = (document.getElementById("gate-user").value || "").trim().toLowerCase();
@@ -7286,14 +7282,17 @@ ${body}
     const err  = document.getElementById("gate-err");
     err.textContent = "";
     if (!user || !pass) { err.textContent = "Username and password required."; return; }
-    const hash = await sha256(pass);
-    if (CREDS[user] && CREDS[user] === hash) {
-      sessionStorage.setItem(LS_AUTH, user);
-      document.getElementById("login-gate").remove();
-      document.getElementById("login-gate-css") && document.getElementById("login-gate-css").remove();
-      document.getElementById("login-gate-js") && document.getElementById("login-gate-js").remove();
-    } else {
-      err.textContent = "Invalid credentials. Contact your InSynBio coordinator.";
+    try {
+      if (CREDS[user] && CREDS[user] === pass) {
+        sessionStorage.setItem(LS_AUTH, user);
+        document.getElementById("login-gate").remove();
+        document.getElementById("login-gate-css") && document.getElementById("login-gate-css").remove();
+        document.getElementById("login-gate-js") && document.getElementById("login-gate-js").remove();
+      } else {
+        err.textContent = "Invalid credentials. Contact your InSynBio coordinator.";
+      }
+    } catch (e) {
+      err.textContent = "Login failed in this browser. Try Chrome/Edge incognito.";
     }
   };
 
