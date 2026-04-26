@@ -615,7 +615,7 @@ async function cancelActiveAsyncJob() {
   window.__activeAsyncAbort = true;
   if (id) {
     try {
-      await fetch(apiJoin(`jobs/${id}/cancel`), {
+      await apiFetch(apiJoin(`jobs/${id}/cancel`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -666,6 +666,23 @@ function _getUserApiEndpoint() {
 function _setUserApiEndpoint(url) {
   try { localStorage.setItem(LS_API_ENDPOINT, (url || "").trim()); }
   catch (e) {}
+}
+
+/**
+ * apiFetch — drop-in fetch() wrapper that automatically adds
+ * "ngrok-skip-browser-warning" header when the URL is a ngrok endpoint.
+ * Without this header, ngrok free tier returns an HTML warning page
+ * instead of JSON, causing "Unexpected token '<'" errors.
+ */
+async function apiFetch(url, opts = {}) {
+  const isNgrok = /ngrok/i.test(url);
+  if (isNgrok) {
+    opts = {
+      ...opts,
+      headers: { "ngrok-skip-browser-warning": "true", ...(opts.headers || {}) }
+    };
+  }
+  return fetch(url, opts);
 }
 
 function openApiSettingsModal() {
@@ -1268,7 +1285,7 @@ async function refreshServerWallet() {
     return;
   }
   try {
-    const r = await fetch(apiJoin("auth/me"), { headers: { Authorization: "Bearer " + t } });
+    const r = await apiFetch(apiJoin("auth/me"), { headers: { Authorization: "Bearer " + t } });
     if (!r.ok) throw new Error("me");
     const d = await r.json();
     state.serverMode = true;
@@ -1335,7 +1352,7 @@ async function submitAuthLogin() {
   const u = (document.getElementById("auth-user") && document.getElementById("auth-user").value) || "";
   const p = (document.getElementById("auth-pin") && document.getElementById("auth-pin").value) || "";
   try {
-    const r = await fetch(apiJoin("auth/login"), {
+    const r = await apiFetch(apiJoin("auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u.trim(), pin: p }),
@@ -1359,7 +1376,7 @@ async function submitAuthRegister() {
   const u = (document.getElementById("auth-user") && document.getElementById("auth-user").value) || "";
   const p = (document.getElementById("auth-pin") && document.getElementById("auth-pin").value) || "";
   try {
-    const r = await fetch(apiJoin("auth/register"), {
+    const r = await apiFetch(apiJoin("auth/register"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u.trim(), pin: p }),
@@ -1427,7 +1444,7 @@ async function recordRunDebit(serviceId, opts) {
   const token = sessionStorage.getItem("insynbio_access_token");
   if (token) {
     try {
-      const r = await fetch(apiJoin("auth/debit"), {
+      const r = await apiFetch(apiJoin("auth/debit"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({
@@ -1661,7 +1678,7 @@ function bootApiConnectivityCheck() {
 
 async function loadHealth() {
   try {
-    const res = await fetch(apiJoin("health"));
+    const res = await apiFetch(apiJoin("health"));
     const ct = res.headers.get("content-type") || "";
     if (!res.ok || !ct.includes("json")) {
       throw new Error("non-json response");
@@ -3351,7 +3368,7 @@ async function runFvImmuneBuilder(service) {
   setRunning("Submitting Fv job…");
   setOutput("");
   try {
-    const res = await fetch(apiJoin("structure/fv_immunebuilder/async"), {
+    const res = await apiFetch(apiJoin("structure/fv_immunebuilder/async"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pairs }),
@@ -3385,7 +3402,7 @@ async function runFvImmuneBuilder(service) {
         });
         return;
       }
-      const pr = await fetch(apiJoin(`jobs/${jobId}`));
+      const pr = await apiFetch(apiJoin(`jobs/${jobId}`));
       if (!pr.ok) throw new Error(`Job poll failed: ${pr.status}`);
       poll = await pr.json();
       const st = (poll.status || "").toLowerCase();
@@ -3556,7 +3573,7 @@ async function runVhvlHumanization(service) {
   try {
     let data;
     if (useAsync) {
-      const res = await fetch(apiJoin("humanize/vh_vl/async"), {
+      const res = await apiFetch(apiJoin("humanize/vh_vl/async"), {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload),
@@ -3587,7 +3604,7 @@ async function runVhvlHumanization(service) {
           });
           return;
         }
-        const pr = await fetch(apiJoin(`jobs/${jobId}`));
+        const pr = await apiFetch(apiJoin(`jobs/${jobId}`));
         if (!pr.ok) throw new Error(`Job poll failed: ${pr.status}`);
         poll = await pr.json();
         const st = (poll.status || "").toLowerCase();
@@ -3629,7 +3646,7 @@ async function runVhvlHumanization(service) {
       }
       if (!data) throw new Error("Timed out waiting for VH/VL job (max ~30 min). Check /docs or server logs.");
     } else {
-      const res = await fetch(apiJoin("humanize/vh_vl"), {
+      const res = await apiFetch(apiJoin("humanize/vh_vl"), {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload),
@@ -4045,7 +4062,7 @@ async function runCmcIgg(service) {
   setRunning("Running antibody CMC assessment...");
   setOutput("");
   try {
-    const res = await fetch(apiJoin("cmc/igg"), {
+    const res = await apiFetch(apiJoin("cmc/igg"), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
@@ -4176,7 +4193,7 @@ async function runVhhStructural(service) {
   setOutput("");
   window.__activeAsyncAbort = false;
   try {
-    const startRes = await fetch(apiJoin("structure/nanobodybuilder2/async"), {
+    const startRes = await apiFetch(apiJoin("structure/nanobodybuilder2/async"), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body,
@@ -4196,7 +4213,7 @@ async function runVhhStructural(service) {
         setOutput(errorPanel("Job cancelled by user."));
         return;
       }
-      const pr = await fetch(apiJoin(`jobs/${jobId}`));
+      const pr = await apiFetch(apiJoin(`jobs/${jobId}`));
       if (!pr.ok) throw new Error(`Poll failed: ${pr.status}`);
       const poll = await pr.json();
       const st = (poll.status || "").toLowerCase();
@@ -4311,7 +4328,7 @@ async function runVhhHumanization(service) {
     let data;
     if (useAsync) {
       // Submit to async endpoint — get job_id immediately
-      const startRes = await fetch(apiJoin("humanize/vhh/async"), {
+      const startRes = await apiFetch(apiJoin("humanize/vhh/async"), {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body,
@@ -4333,7 +4350,7 @@ async function runVhhHumanization(service) {
           setOutput(errorPanel("Job cancelled by user."));
           return;
         }
-        const pr = await fetch(apiJoin(`jobs/${jobId}`));
+        const pr = await apiFetch(apiJoin(`jobs/${jobId}`));
         if (!pr.ok) throw new Error(`Poll failed: ${pr.status}`);
         poll = await pr.json();
         const st = (poll.status || "").toLowerCase();
@@ -4358,7 +4375,7 @@ async function runVhhHumanization(service) {
       if (!data) throw new Error("VHH job timed out after polling limit.");
     } else {
       // Synchronous run
-      const res = await fetch(apiJoin("humanize/vhh"), {
+      const res = await apiFetch(apiJoin("humanize/vhh"), {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body,
@@ -4662,7 +4679,7 @@ async function runVhhCmc(service) {
   setRunning("Running VHH CMC assessment...");
   setOutput("");
   try {
-    const res = await fetch(apiJoin("cmc/vhh"), {
+    const res = await apiFetch(apiJoin("cmc/vhh"), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({vhh_sequence: seq, report_format: "pdf", ...((document.getElementById("vhh-cmc-name") && document.getElementById("vhh-cmc-name").value.trim()) && {sequence_name: document.getElementById("vhh-cmc-name").value.trim()})}),
@@ -4786,7 +4803,7 @@ async function runCmcBispecific(service) {
   setRunning("Running bispecific VHH CMC...");
   setOutput("");
   try {
-    const res = await fetch(apiJoin("cmc/bispecific"), {
+    const res = await apiFetch(apiJoin("cmc/bispecific"), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
@@ -4903,7 +4920,7 @@ async function runVhToVhh(service) {
   window.__activeAsyncAbort = false;
   try {
     // Submit to async endpoint — returns job_id immediately
-    const startRes = await fetch(apiJoin("vh_to_vhh/async"), {
+    const startRes = await apiFetch(apiJoin("vh_to_vhh/async"), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body,
@@ -4924,7 +4941,7 @@ async function runVhToVhh(service) {
         setOutput(errorPanel("Job cancelled by user."));
         return;
       }
-      const pr = await fetch(apiJoin(`jobs/${jobId}`));
+      const pr = await apiFetch(apiJoin(`jobs/${jobId}`));
       if (!pr.ok) throw new Error(`Poll failed: ${pr.status}`);
       const poll = await pr.json();
       const st = (poll.status || "").toLowerCase();
@@ -5301,7 +5318,7 @@ async function runSegmentationVhvl(service) {
     setRunning(`${schemeRun} (server)…`);
     setOutput("");
     try {
-      const res = await fetch(apiJoin("annotate/vh_vl"), {
+      const res = await apiFetch(apiJoin("annotate/vh_vl"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5571,7 +5588,7 @@ async function runVhhSegmentation(service) {
     setRunning(`${schemeRun} (server)…`);
     setOutput("");
     try {
-      const res = await fetch(apiJoin("annotate/vhh"), {
+      const res = await apiFetch(apiJoin("annotate/vhh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -7283,3 +7300,4 @@ ${body}
 </script>
 </body>
 </html>
+
