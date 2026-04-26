@@ -540,6 +540,7 @@ button, input, select, textarea { font: inherit; }
   </div>
 </div>
 
+
 <header class="topbar">
   <div class="brand">
     <div class="brand-mark">IS</div>
@@ -7270,6 +7271,12 @@ function createClientReport({title, service, analysisVersion, sections, generate
 <div class="meta">${metaHtml}</div>
 ${body}
 </div>
+</body></html>`;
+  const url = URL.createObjectURL(new Blob([html], {type: "text/html"}));
+  state.currentArtifactUrl = url;
+  return url;
+}
+</script>
 
 <script id="login-gate-js">
 (function() {
@@ -7311,11 +7318,5 @@ ${body}
 })();
 </script>
 
-</body></html>`;
-  const url = URL.createObjectURL(new Blob([html], {type: "text/html"}));
-  state.currentArtifactUrl = url;
-  return url;
-}
-</script>
 </body>
 </html>
