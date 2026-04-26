@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AbEngineCore console UI build: standalone-login-deploy-20260426-v23 -->
+<!-- AbEngineCore console UI build: api-not-configured-banner-deploy-20260426-v24 -->
 <html lang="en">
 <head>
 
@@ -696,6 +696,7 @@ async function saveApiEndpoint() {
   if (msg) { msg.style.color = "var(--muted)"; msg.textContent = url ? "Saved. Testing connection\u2026" : "Cleared."; }
   await loadHealth();
   updateTopbar();
+  reflectApiButtonState();
   if (msg) {
     if (!url) { msg.textContent = "Cleared. Using default."; return; }
     if (state.apiVersion === "offline") {
@@ -704,6 +705,8 @@ async function saveApiEndpoint() {
     } else {
       msg.style.color = "var(--pass)";
       msg.textContent = "Connected \u00b7 API " + state.apiVersion;
+      const banner = document.getElementById("api-not-configured-banner");
+      if (banner) { banner.remove(); document.body.style.paddingTop = ""; }
     }
   }
 }
@@ -1597,20 +1600,81 @@ function initSidebarScopeServiceSplitter(initialPct) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   initLayoutResizers();
+  bootApiConnectivityCheck();
   await loadHealth();
   await refreshServerWallet();
   renderApp();
+  reflectApiButtonState();
 });
+
+/** When deployed on a public host (e.g. GitHub Pages) and the user has not yet
+ *  configured an HTTPS tunnel pointing at their local API, every API call would
+ *  hit the static host and return HTML — producing the cryptic
+ *  "Unexpected token '<', "<html>...' is not valid JSON" error.
+ *  Surface this clearly: red banner + auto-open the API Endpoint modal. */
+function isPublicDeployment() {
+  const h = location.hostname;
+  if (!h) return false;
+  if (h === "localhost" || h === "127.0.0.1") return false;
+  return true;
+}
+
+function showApiNotConfiguredBanner() {
+  if (document.getElementById("api-not-configured-banner")) return;
+  const bar = document.createElement("div");
+  bar.id = "api-not-configured-banner";
+  bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9000;background:#7a1d1d;color:#ffe9e9;padding:8px 14px;font:12px/1.5 system-ui,sans-serif;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f85149;box-shadow:0 2px 8px rgba(0,0,0,.4)";
+  bar.innerHTML = `
+    <strong style="color:#ffd1d1">⚠ Not connected to a compute backend.</strong>
+    <span>Requests will fail until you configure an HTTPS tunnel pointing at your local API (port 8000).</span>
+    <button type="button" onclick="openApiSettingsModal()" style="margin-left:auto;background:#f85149;color:#1a0707;border:none;padding:5px 12px;border-radius:5px;font-weight:600;cursor:pointer">Configure now</button>
+    <button type="button" onclick="document.getElementById('api-not-configured-banner').remove()" style="background:transparent;color:#ffe9e9;border:1px solid #ffe9e9;padding:4px 8px;border-radius:5px;cursor:pointer">Dismiss</button>
+  `;
+  document.body.appendChild(bar);
+  document.body.style.paddingTop = "40px";
+}
+
+function reflectApiButtonState() {
+  const btn = document.getElementById("api-settings-btn");
+  if (!btn) return;
+  const saved = _getUserApiEndpoint();
+  if (isPublicDeployment() && !saved) {
+    btn.style.background = "#f85149";
+    btn.style.color = "#1a0707";
+    btn.style.fontWeight = "700";
+    btn.textContent = "⚠ Configure API";
+  } else {
+    btn.style.background = "";
+    btn.style.color = "";
+    btn.style.fontWeight = "";
+    btn.textContent = "⚙ API Endpoint";
+  }
+}
+
+function bootApiConnectivityCheck() {
+  if (!isPublicDeployment()) return;
+  const saved = _getUserApiEndpoint();
+  if (saved) return;
+  showApiNotConfiguredBanner();
+  setTimeout(() => { try { openApiSettingsModal(); } catch (e) {} }, 250);
+}
 
 async function loadHealth() {
   try {
     const res = await fetch(apiJoin("health"));
+    const ct = res.headers.get("content-type") || "";
+    if (!res.ok || !ct.includes("json")) {
+      throw new Error("non-json response");
+    }
     const data = await res.json();
     state.apiVersion = data.version || "—";
     state.gitSha = data.git_sha || null;
   } catch (err) {
     state.apiVersion = "offline";
     state.gitSha = null;
+    if (isPublicDeployment() && !_getUserApiEndpoint()) {
+      showApiNotConfiguredBanner();
+    }
   }
 }
 
